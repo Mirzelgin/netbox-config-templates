@@ -1,0 +1,51 @@
+{# Добавляем комментарии к проводным физическим финтерфейсам#}
+/interface ethernet
+{%- for interface in device.interfaces.all() %}
+{%- if interface.is_wired and interface.description %}
+set [ find default-name={{interface.name}} ] comment="{{interface.description}}"
+{%- endif %}
+{%- endfor %}
+
+{# Создаём мосты #}
+/interface bridge
+{%- for interface in device.interfaces.all() %}
+{%- if interface.is_bridge %}
+add name={{interface.name}} {%+ if interface.mode in ['tagged','tagged-all'] %}vlan-filtering=yes{% endif %} {%+ if interface.description %} comment="{{interface.description}}"{% endif %}
+{%- endif %}
+{%- endfor %}
+
+{# Создаём виртуальные интерфейсы VLAN #}
+/interface vlan
+{%- for interface in device.interfaces.all() %}
+{%- if interface.is_virtual and interface.parent and interface.mode == 'access' and interface.untagged_vlan%}
+add interface={{interface.parent.name}} name={{interface.name}} vlan-id={{interface.untagged_vlan.vid}} {%+ if interface.description %} comment="{{interface.description}}"{% endif %}
+{%- endif %}
+{%- endfor %}
+
+{# Добавляем интерфесы в bridge #}
+/interface bridge port
+{%- for interface in device.interfaces.all() %}
+{%- if interface.bridge %}
+add bridge={{interface.bridge.name}} interface={{interface.name}}{%+ if interface.description %} comment="{{interface.description}}"{% endif %}
+{%- endif %}
+{%- endfor %}
+
+{# Настраиваем VLAN на bridge #}
+/interface bridge vlan
+{%- for interface in device.interfaces.all() %}
+{%- if interface.is_bridge and interface.tagged_vlans %}
+{%- for vlan in interface.tagged_vlans.all() %}
+{%- set ift = (([interface] if (interface.child_interfaces.all().filter(type="virtual", untagged_vlan=vlan)) else []) + (interface.bridge_interfaces.all().filter(tagged_vlans=vlan)|list)) %}
+{%- set ifu = interface.bridge_interfaces.all().filter(untagged_vlan=vlan)|list %}
+add bridge={{interface.name}}{%+ if ift %} tagged={{ ift|join(',') }}{% endif %}{%+ if ifu %} untagged={{ ifu|join(',') }}{% endif %} vlan-ids={{vlan.vid}}
+{%- endfor %}
+{%- endif %}
+{%- endfor %}
+
+{# Добавляем интерфесам IP-адреса #}
+/ip address
+{%- for interface in device.interfaces.all() %}
+{%- for address in interface.ip_addresses.all() %}
+add address={{address}} interface={{interface.name}}{%+ if address.description %} comment="{{address.description}}"{% endif %}
+{%- endfor %}
+{%- endfor %}

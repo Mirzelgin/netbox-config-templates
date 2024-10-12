@@ -1,2 +1,0 @@
-# netbox-config-templates
-Коллекция шаблонов конфигурации для netbox на Jinja2. Почитать можно в официальном руководстве netbox [Configuration Templates](https://netboxlabs.com/docs/netbox/en/stable/models/extras/configtemplate/)
